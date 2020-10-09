@@ -1,4 +1,4 @@
-/*****************************************************************************************************************
+﻿/*****************************************************************************************************************
  *  Copyright David Lomas (codersaur)
  *
  *  Name: InfluxDB Logger
@@ -91,6 +91,8 @@ preferences {
         input "consumables", "capability.consumable", title: "Consumables", multiple: true, required: false
         input "contacts", "capability.contactSensor", title: "Contact Sensors", multiple: true, required: false
         input "doorsControllers", "capability.doorControl", title: "Door Controllers", multiple: true, required: false
+   
+        input "dryerModes", "capability.dryerMode", title: "Dryers", multiple: true, required: false
         input "energyMeters", "capability.energyMeter", title: "Energy Meters", multiple: true, required: false
         input "humidities", "capability.relativeHumidityMeasurement", title: "Humidity Meters", multiple: true, required: false
         input "illuminances", "capability.illuminanceMeasurement", title: "Illuminance Meters", multiple: true, required: false
@@ -118,6 +120,7 @@ preferences {
         input "uvs", "capability.ultravioletIndex", title: "UV Sensors", multiple: true, required: false
         input "valves", "capability.valve", title: "Valves", multiple: true, required: false
         input "volts", "capability.voltageMeasurement", title: "Voltage Meters", multiple: true, required: false
+        input "washerModes", "capability.washerMode", title: "Washers", multiple: true, required: false
         input "waterSensors", "capability.waterSensor", title: "Water Sensors", multiple: true, required: false
         input "windowShades", "capability.windowShade", title: "Window Shades", multiple: true, required: false
     }
@@ -195,6 +198,8 @@ def updated() {
     state.deviceAttributes << [ devices: 'consumables', attributes: ['consumableStatus']]
     state.deviceAttributes << [ devices: 'contacts', attributes: ['contact']]
     state.deviceAttributes << [ devices: 'doorsControllers', attributes: ['door']]
+    state.deviceAttributes << [ devices: 'dryerModes', attributes: ['powerConsumption','dryerMode','machineState','dryerJobState','dryerDryLevel']]
+    
     state.deviceAttributes << [ devices: 'energyMeters', attributes: ['energy']]
     state.deviceAttributes << [ devices: 'humidities', attributes: ['humidity']]
     state.deviceAttributes << [ devices: 'illuminances', attributes: ['illuminance']]
@@ -222,6 +227,7 @@ def updated() {
     state.deviceAttributes << [ devices: 'uvs', attributes: ['ultravioletIndex']]
     state.deviceAttributes << [ devices: 'valves', attributes: ['contact']]
     state.deviceAttributes << [ devices: 'volts', attributes: ['voltage']]
+    state.deviceAttributes << [ devices: 'washerModes',attributes: ['powerConsumption','washerMode','machineState','washerJobState','washerWaterTemperature']]
     state.deviceAttributes << [ devices: 'waterSensors', attributes: ['water']]
     state.deviceAttributes << [ devices: 'windowShades', attributes: ['windowShade']]
 
@@ -397,6 +403,17 @@ def handleEvent(evt) {
         value = '"' + value + '"'
         valueBinary = ('on' == evt.value) ? '1i' : '0i'
         data += ",unit=${unit} value=${value},valueBinary=${valueBinary}"
+    }
+    else if (('powerConsumption' == evt.name) && (value.startsWith("{")))
+    {
+    	// This comes in as an escaped json string with multiple values, let's break them apart
+        def valueParsed = value.replaceAll("\\\\", "")        
+        valueParsed = new groovy.json.JsonSlurper().parseText(valueParsed);        
+       
+        unit = 'power'
+        value = '"' + value + '"'
+        data += ",unit=${unit} value=${value},energy=${valueParsed.energy},deltaEnergy=${valueParsed.deltaEnergy},power=${valueParsed.power}"
+        
     }
     else if ('tamper' == evt.name) { // tamper: Calculate a binary value (detected = 1, clear = 0)
         unit = 'tamper'
